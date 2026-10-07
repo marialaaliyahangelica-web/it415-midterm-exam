@@ -1,23 +1,35 @@
 /* ==========================================================================
-   Campus IT Help Desk - Core Application Logic
+   Campus IT Help Desk - Core Application Logic (Stage 5 Patched)
    ========================================================================== */
 
 const STORAGE_KEY = "it_helpdesk_tickets";
 const COUNTER_KEY = "it_helpdesk_counter";
 
-// Pre-seeded technicians list
 const TECHNICIANS = ["Alex Rivera", "Sarah Chen", "Marcus Vance"];
 
 // State
 let tickets = [];
 let currentViewingTicketId = null;
 
-// DOM Elements
+// Form DOM Elements
 const ticketForm = document.getElementById("ticket-form");
+const inputRequester = document.getElementById("requester-name");
+const selectCategory = document.getElementById("category");
+const selectPriority = document.getElementById("priority");
+const selectTech = document.getElementById("assigned-tech");
+const inputDescription = document.getElementById("description");
+
+// Error Label Elements
+const errorName = document.getElementById("error-name");
+const errorCategory = document.getElementById("error-category");
+const errorPriority = document.getElementById("error-priority");
+const errorDesc = document.getElementById("error-desc");
+
+// Table & Alert Elements
 const ticketsTableBody = document.getElementById("tickets-table-body");
 const alertBanner = document.getElementById("alert-banner");
 
-// Filter & Sort Elements
+// Filter & Sort Controls
 const searchInput = document.getElementById("search-input");
 const filterStatus = document.getElementById("filter-status");
 const filterPriority = document.getElementById("filter-priority");
@@ -52,7 +64,7 @@ const noteAuthor = document.getElementById("note-author");
 const noteText = document.getElementById("note-text");
 const modalNotesFeed = document.getElementById("modal-notes-feed");
 
-// Priority Sorting Rank
+// Priority Ranking
 const PRIORITY_RANK = {
   "Critical": 4,
   "High": 3,
@@ -60,14 +72,13 @@ const PRIORITY_RANK = {
   "Low": 1
 };
 
-// Initialize Application
+// Bootstrap
 document.addEventListener("DOMContentLoaded", () => {
   loadTickets();
   renderApp();
   setupEventListeners();
 });
 
-// Load from LocalStorage
 function loadTickets() {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
@@ -77,11 +88,10 @@ function loadTickets() {
       tickets = [];
     }
   } else {
-    // Initial sample ticket
     tickets = [
       {
         id: "TKT-0001",
-        requester: "Prof. Albus Dumbledore",
+        requester: "Campus Faculty",
         category: "Network",
         priority: "High",
         status: "Open",
@@ -92,7 +102,7 @@ function loadTickets() {
         notes: [
           {
             author: "System Auto-Logger",
-            text: "Ticket received via campus portal.",
+            text: "Report received via campus web interface.",
             date: new Date(Date.now() - 86400000 * 2).toISOString()
           }
         ]
@@ -116,11 +126,14 @@ function getNextTicketNumber() {
   return formatted;
 }
 
-// Event Listeners
 function setupEventListeners() {
   ticketForm.addEventListener("submit", handleCreateTicket);
-  
-  // Filtering & Sorting
+
+  inputRequester.addEventListener("input", () => clearInputError(inputRequester, errorName));
+  selectCategory.addEventListener("change", () => clearInputError(selectCategory, errorCategory));
+  selectPriority.addEventListener("change", () => clearInputError(selectPriority, errorPriority));
+  inputDescription.addEventListener("input", () => clearInputError(inputDescription, errorDesc));
+
   searchInput.addEventListener("input", renderApp);
   filterStatus.addEventListener("change", renderApp);
   filterPriority.addEventListener("change", renderApp);
@@ -128,7 +141,6 @@ function setupEventListeners() {
   filterTech.addEventListener("change", renderApp);
   sortOrder.addEventListener("change", renderApp);
 
-  // Modal Handlers
   modalCloseBtn.addEventListener("click", closeModal);
   ticketModal.addEventListener("click", (e) => {
     if (e.target === ticketModal) closeModal();
@@ -138,28 +150,75 @@ function setupEventListeners() {
   noteForm.addEventListener("submit", handleAddNote);
 }
 
-// ---------------------------------------------------------------------------
-// FEATURE: The Status Rules Implementation
-// ---------------------------------------------------------------------------
+function validateTicketForm(requester, category, priority, description) {
+  let isValid = true;
+
+  if (!requester || requester.trim().length === 0) {
+    setInputError(inputRequester, errorName, "Requester name is required.");
+    isValid = false;
+  } else if (requester.trim().length < 3) {
+    setInputError(inputRequester, errorName, "Requester name must be at least 3 characters.");
+    isValid = false;
+  } else {
+    clearInputError(inputRequester, errorName);
+  }
+
+  const validCategories = ["Hardware", "Network", "Software", "Account"];
+  if (!category || !validCategories.includes(category)) {
+    setInputError(selectCategory, errorCategory, "Please choose a valid category.");
+    isValid = false;
+  } else {
+    clearInputError(selectCategory, errorCategory);
+  }
+
+  const validPriorities = ["Low", "Medium", "High", "Critical"];
+  if (!priority || !validPriorities.includes(priority)) {
+    setInputError(selectPriority, errorPriority, "Please select an issue priority level.");
+    isValid = false;
+  } else {
+    clearInputError(selectPriority, errorPriority);
+  }
+
+  if (!description || description.trim().length === 0) {
+    setInputError(inputDescription, errorDesc, "Issue description is required.");
+    isValid = false;
+  } else if (description.trim().length < 10) {
+    setInputError(inputDescription, errorDesc, "Please provide more detail (minimum 10 characters).");
+    isValid = false;
+  } else {
+    clearInputError(inputDescription, errorDesc);
+  }
+
+  return isValid;
+}
+
+function setInputError(inputElement, errorElement, message) {
+  inputElement.classList.add("is-invalid");
+  errorElement.textContent = message;
+}
+
+function clearInputError(inputElement, errorElement) {
+  inputElement.classList.remove("is-invalid");
+  errorElement.textContent = "";
+}
+
 function validateStatusTransition(currentStatus, targetStatus, assignedTech) {
   if (currentStatus === targetStatus) {
     return { valid: true };
   }
 
-  // Rule: Cannot move to 'In Progress' without an assigned technician
   if (targetStatus === "In Progress" && (!assignedTech || assignedTech.trim() === "")) {
     return {
       valid: false,
-      message: "Validation Error: A ticket can only become 'In Progress' if an IT technician is assigned."
+      message: "Rule Violation: A ticket cannot enter 'In Progress' without an assigned IT technician."
     };
   }
 
-  // Rule: Progression Open -> In Progress -> Resolved -> Closed
   if (currentStatus === "Open") {
     if (targetStatus === "In Progress") return { valid: true };
     return {
       valid: false,
-      message: `Invalid Transition: Cannot jump from 'Open' to '${targetStatus}'. Must move to 'In Progress' first.`
+      message: `Illegal Jump: Cannot transition from 'Open' directly to '${targetStatus}'. Next step must be 'In Progress'.`
     };
   }
 
@@ -167,41 +226,40 @@ function validateStatusTransition(currentStatus, targetStatus, assignedTech) {
     if (targetStatus === "Resolved") return { valid: true };
     return {
       valid: false,
-      message: `Invalid Transition: Cannot jump from 'In Progress' to '${targetStatus}'. Valid next step is 'Resolved'.`
+      message: `Illegal Jump: Cannot transition from 'In Progress' to '${targetStatus}'. Next step must be 'Resolved'.`
     };
   }
 
   if (currentStatus === "Resolved") {
-    // Rule: A Resolved ticket can go back to In Progress if the fix didn't work
     if (targetStatus === "In Progress" || targetStatus === "Closed") return { valid: true };
     return {
       valid: false,
-      message: `Invalid Transition: From 'Resolved', you can only proceed to 'Closed' or return to 'In Progress'.`
+      message: "Illegal Jump: From 'Resolved', you may only finalize to 'Closed' or return to 'In Progress'."
     };
   }
 
   if (currentStatus === "Closed") {
     return {
       valid: false,
-      message: "Ticket is Closed and finalized. Status cannot be modified further."
+      message: "Ticket is Closed and permanently locked from status changes."
     };
   }
 
   return { valid: false, message: "Invalid status transition requested." };
 }
 
-// Form Submission: Create Ticket
 function handleCreateTicket(e) {
   e.preventDefault();
 
-  const requester = document.getElementById("requester-name").value.trim();
-  const category = document.getElementById("category").value;
-  const priority = document.getElementById("priority").value;
-  const technician = document.getElementById("assigned-tech").value;
-  const description = document.getElementById("description").value.trim();
+  const requester = inputRequester.value.trim();
+  const category = selectCategory.value;
+  const priority = selectPriority.value;
+  const technician = selectTech.value;
+  const description = inputDescription.value.trim();
 
-  if (!requester || !category || !priority || !description) {
-    showAlert("Please fill in all required fields.", "alert-danger");
+  const isValid = validateTicketForm(requester, category, priority, description);
+  if (!isValid) {
+    showAlert("Please correct the highlighted errors before submitting.", "alert-danger");
     return;
   }
 
@@ -218,7 +276,7 @@ function handleCreateTicket(e) {
     notes: [
       {
         author: "Help Desk",
-        text: "Ticket created and logged in queue.",
+        text: "Ticket received and queued for triage.",
         date: new Date().toISOString()
       }
     ]
@@ -228,11 +286,10 @@ function handleCreateTicket(e) {
   saveTickets();
   ticketForm.reset();
 
-  showAlert(`Ticket ${newTicket.id} created successfully!`, "alert-success");
+  showAlert(`Ticket ${newTicket.id} created successfully.`, "alert-success");
   renderApp();
 }
 
-// Status & Tech Update from Modal
 function handleStatusUpdate() {
   const ticket = tickets.find(t => t.id === currentViewingTicketId);
   if (!ticket) return;
@@ -250,28 +307,27 @@ function handleStatusUpdate() {
   ticket.status = targetStatus;
   ticket.technician = selectedTech;
 
-  // Track resolution date and turnaround
+  // BUG FIX 1: Correctly sync resolved timestamp and handle reopen reset
   if (targetStatus === "Resolved" && !ticket.resolvedAt) {
     ticket.resolvedAt = new Date().toISOString();
   } else if (targetStatus === "In Progress" && oldStatus === "Resolved") {
-    ticket.resolvedAt = null;
+    ticket.resolvedAt = null; // Reset timestamp if reopened
   }
 
-  // Audit note
   ticket.notes.unshift({
     author: selectedTech || "IT Admin",
-    text: `Status changed from '${oldStatus}' to '${targetStatus}'. Assigned: ${selectedTech || "None"}.`,
+    text: `Status updated from '${oldStatus}' to '${targetStatus}'. Technician: ${selectedTech || "Unassigned"}.`,
     date: new Date().toISOString()
   });
 
   saveTickets();
-  showModalAlert(`Status successfully updated to '${targetStatus}'.`, "alert-success");
+  showModalAlert(`Status successfully set to '${targetStatus}'.`, "alert-success");
   
+  // Re-populate modal view immediately so turnaround refreshes dynamically
   populateModalData(ticket);
   renderApp();
 }
 
-// Add Note Handler
 function handleAddNote(e) {
   e.preventDefault();
   const ticket = tickets.find(t => t.id === currentViewingTicketId);
@@ -280,9 +336,16 @@ function handleAddNote(e) {
   const author = noteAuthor.value.trim();
   const text = noteText.value.trim();
 
-  if (!author || !text) return;
+  if (!author || author.length < 2) {
+    showModalAlert("Please enter a valid note author name (at least 2 letters).", "alert-danger");
+    return;
+  }
 
-  // Newest first
+  if (!text || text.length < 3) {
+    showModalAlert("Note text cannot be empty or shorter than 3 characters.", "alert-danger");
+    return;
+  }
+
   ticket.notes.unshift({
     author,
     text,
@@ -294,17 +357,27 @@ function handleAddNote(e) {
   renderNotesFeed(ticket.notes);
 }
 
-// Calculate Turnaround Days
+// BUG FIX 2: Fixed turnaround calculation for same-day resolutions and invalid dates
 function calculateTurnaround(createdIso, resolvedIso) {
   if (!resolvedIso) return "Not resolved yet";
+  
   const start = new Date(createdIso);
   const end = new Date(resolvedIso);
-  const diffTime = Math.abs(end - start);
-  const diffDays = (diffTime / (1000 * 60 * 60 * 24)).toFixed(1);
-  return `${diffDays} day(s)`;
+  
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return "Invalid date recorded";
+  }
+
+  const diffMs = Math.max(0, end.getTime() - start.getTime());
+  const diffHours = diffMs / (1000 * 60 * 60);
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  if (diffHours < 24) {
+    return "< 1 day (Resolved same day)";
+  }
+  return `${diffDays.toFixed(1)} day(s)`;
 }
 
-// Open Detail Modal
 function openTicketModal(ticketId) {
   const ticket = tickets.find(t => t.id === ticketId);
   if (!ticket) return;
@@ -354,7 +427,6 @@ function closeModal() {
   currentViewingTicketId = null;
 }
 
-// Render Dashboard and Table
 function renderApp() {
   updateDashboard();
   renderTable();
@@ -392,7 +464,6 @@ function renderTable() {
     return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesTech;
   });
 
-  // Sorting
   filtered.sort((a, b) => {
     if (sort === "priority-desc") {
       return PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority];
@@ -427,7 +498,6 @@ function renderTable() {
   `).join("");
 }
 
-// Alerts and Utilities
 function showAlert(message, type) {
   alertBanner.className = `alert-banner ${type}`;
   alertBanner.textContent = message;
