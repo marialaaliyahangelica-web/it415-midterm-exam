@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campus IT Help Desk</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Apple Top Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <span class="nav-icon"></span>
+        <span class="nav-title">IT Help Desk System</span>
+      </div>
+      <div class="nav-status">
+        <span class="badge badge-system">Campus Network Online</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <!-- Live Dashboard -->
+    <section class="dashboard-section">
+      <div class="dashboard-header">
+        <h2>Dashboard Overview</h2>
+        <p class="subtitle">Real-time status of service tickets across campus</p>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <span class="metric-label">Total Tickets</span>
+          <span class="metric-value" id="metric-total">0</span>
+        </div>
+        <div class="metric-card metric-warning">
+          <span class="metric-label">Open (Unassigned)</span>
+          <span class="metric-value" id="metric-unassigned">0</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">In Progress</span>
+          <span class="metric-value" id="metric-inprogress">0</span>
+        </div>
+        <div class="metric-card metric-success">
+          <span class="metric-label">Resolved</span>
+          <span class="metric-value" id="metric-resolved">0</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Closed</span>
+          <span class="metric-value" id="metric-closed">0</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Workspace Split Layout -->
+    <div class="workspace-grid">
+      <!-- Create Ticket Card -->
+      <aside class="ticket-form-card">
+        <h3>New Support Ticket</h3>
+        <p class="card-desc">Submit an issue report to campus IT</p>
+
+        <form id="ticket-form" novalidate>
+          <div class="form-group">
+            <label for="requester-name">Requester Name</label>
+            <input type="text" id="requester-name" placeholder="e.g., Maria Santos" required>
+            <small class="field-error" id="error-name"></small>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="category">Category</label>
+              <select id="category" required>
+                <option value="">Select Category</option>
+                <option value="Hardware">Hardware</option>
+                <option value="Network">Network</option>
+                <option value="Software">Software</option>
+                <option value="Account">Account</option>
+              </select>
+              <small class="field-error" id="error-category"></small>
+            </div>
+
+            <div class="form-group">
+              <label for="priority">Priority</label>
+              <select id="priority" required>
+                <option value="">Select Priority</option>
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Critical">Critical</option>
+              </select>
+              <small class="field-error" id="error-priority"></small>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="assigned-tech">Assign Technician</label>
+            <select id="assigned-tech">
+              <option value="">Unassigned (Assign Later)</option>
+              <option value="Alex Rivera">Alex Rivera (Hardware Specialist)</option>
+              <option value="Sarah Chen">Sarah Chen (Network Admin)</option>
+              <option value="Marcus Vance">Marcus Vance (Systems & Accounts)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="description">Issue Description</label>
+            <textarea id="description" rows="4" placeholder="Describe the problem in detail..." required></textarea>
+            <small class="field-error" id="error-desc"></small>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block">Submit Ticket</button>
+        </form>
+      </aside>
+
+      <!-- Tickets Directory & Controls -->
+      <section class="ticket-list-card">
+        <div class="list-header">
+          <div>
+            <h3>Support Tickets</h3>
+            <p class="card-desc">Search, filter, and triage incoming reports</p>
+          </div>
+        </div>
+
+        <!-- Filter & Search Toolbar -->
+        <div class="toolbar">
+          <div class="search-box">
+            <input type="text" id="search-input" placeholder="Search by description or ID...">
+          </div>
+          <div class="filter-controls">
+            <select id="filter-status">
+              <option value="ALL">All Statuses</option>
+              <option value="Open">Open</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Resolved">Resolved</option>
+              <option value="Closed">Closed</option>
+            </select>
+
+            <select id="filter-priority">
+              <option value="ALL">All Priorities</option>
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+
+            <select id="filter-category">
+              <option value="ALL">All Categories</option>
+              <option value="Hardware">Hardware</option>
+              <option value="Network">Network</option>
+              <option value="Software">Software</option>
+              <option value="Account">Account</option>
+            </select>
+
+            <select id="filter-tech">
+              <option value="ALL">All Technicians</option>
+              <option value="UNASSIGNED">Unassigned Only</option>
+              <option value="Alex Rivera">Alex Rivera</option>
+              <option value="Sarah Chen">Sarah Chen</option>
+              <option value="Marcus Vance">Marcus Vance</option>
+            </select>
+
+            <select id="sort-order">
+              <option value="priority-desc">Sort: Priority (Critical First)</option>
+              <option value="date-desc">Sort: Date (Newest First)</option>
+              <option value="date-asc">Sort: Date (Oldest First)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Notification Banner -->
+        <div id="alert-banner" class="alert-banner hidden"></div>
+
+        <!-- Tickets Table Container -->
+        <div class="table-container">
+          <table class="tickets-table">
+            <thead>
+              <tr>
+                <th>Ticket ID</th>
+                <th>Requester</th>
+                <th>Category</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Technician</th>
+                <th>Created</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="tickets-table-body">
+              <tr>
+                <td colspan="8" class="text-center empty-state">No tickets found. Submit a ticket to begin.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Apple Style Detail & Notes Modal -->
+  <div id="ticket-modal" class="modal-backdrop hidden">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div>
+          <span class="badge" id="modal-ticket-id">TKT-0000</span>
+          <h2 id="modal-ticket-title">Ticket Details</h2>
+        </div>
+        <button type="button" class="btn-close" id="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Requester</span>
+            <span class="detail-val" id="modal-requester">--</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Category</span>
+            <span class="detail-val" id="modal-category">--</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Priority</span>
+            <span class="detail-val" id="modal-priority">--</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Created Date</span>
+            <span class="detail-val" id="modal-created">--</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Current Status</span>
+            <span class="detail-val" id="modal-status">--</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Resolution Turnaround</span>
+            <span class="detail-val font-semibold" id="modal-turnaround">Not resolved yet</span>
+          </div>
+        </div>
+
+        <div class="detail-desc-box">
+          <span class="detail-label">Issue Description</span>
+          <p id="modal-description">--</p>
+        </div>
+
+        <!-- Status Workflow Transition Control -->
+        <div class="status-transition-card">
+          <h4>Update Ticket State</h4>
+          <p class="card-desc">Status sequence: Open &rarr; In Progress &rarr; Resolved &rarr; Closed</p>
+          <div class="status-action-row">
+            <div class="form-group flex-1">
+              <label for="modal-tech-assign">Assigned Technician</label>
+              <select id="modal-tech-assign">
+                <option value="">Unassigned</option>
+                <option value="Alex Rivera">Alex Rivera</option>
+                <option value="Sarah Chen">Sarah Chen</option>
+                <option value="Marcus Vance">Marcus Vance</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label for="modal-next-status">Change Status</label>
+              <select id="modal-next-status">
+                <option value="Open">Open</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Resolved">Resolved</option>
+                <option value="Closed">Closed</option>
+              </select>
+            </div>
+            <button type="button" id="btn-update-status" class="btn btn-secondary">Apply Update</button>
+          </div>
+          <div id="modal-status-alert" class="alert-banner hidden"></div>
+        </div>
+
+        <!-- Notes Section -->
+        <div class="notes-section">
+          <h4>Technician Activity & Notes</h4>
+          
+          <form id="note-form" class="note-input-form">
+            <div class="form-row">
+              <input type="text" id="note-author" placeholder="Your name (e.g., Tech Alex)" required>
+              <input type="text" id="note-text" placeholder="Add troubleshooting note or update..." required>
+              <button type="submit" class="btn btn-primary">Add Note</button>
+            </div>
+          </form>
+
+          <div class="notes-feed" id="modal-notes-feed">
+            <p class="empty-state">No notes added yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
